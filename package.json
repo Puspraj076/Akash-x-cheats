@@ -1,1 +1,18 @@
+{
+  "name": "akash-x-cheats",
+  "version": "1.0.0",
+  "description": "AKASH X CHEATS Discord Bot made by jackxiterrs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@discordjs/voice": "^0.16.1",
+    "discord.js": "^14.14.0",
+    "dotenv": "^16.4.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
 
