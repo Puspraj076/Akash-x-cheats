@@ -321,3 +321,82 @@ client.on('interactionCreate', async interaction => {
             const sorted = Object.entries(db.economy).sort((a, b) => b[1] - a[1]).slice(0, 10);
             const desc = sorted.length ? sorted.map((([id, coins], index) => `**${index + 1}.** <@${id}> — **${coins} coins**`)).join('\n') : 'No coins recorded yet.';
             await interaction.reply({ embeds: [new EmbedBuilder().setColor(0x2ecc71).setTitle('💰 Server Economy Leaderboard').setDescription(desc)] });
+        }
+    }
+    else if (commandName === 'giveaway') {
+        const subcommand = options.getSubcommand();
+
+        if (subcommand === 'start') {
+            const durationStr = options.getString('duration');
+            const prize = options.getString('prize');
+            const ms = parseDuration(durationStr);
+
+            if (!ms) return interaction.reply({ content: '❌ Invalid duration format! Use format like `30s`, `10m`, `2h`, or `1d`.', ephemeral: true });
+
+            const endsAt = Date.now() + ms;
+            const gEmbed = new EmbedBuilder()
+                .setColor(0xFFD700)
+                .setTitle('🎉 AKASH X CHEATS GIVEAWAY 🎉')
+                .setDescription(`Prize: **${prize}**\nHosted by: ${interaction.user}\nEnds: <t:${Math.floor(endsAt / 1000)}:R>\n\nClick the 🎉 button below to enter!`)
+                .setTimestamp(endsAt)
+                .setFooter({ text: 'AKASH X CHEATS Giveaways' });
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('join_giveaway').setLabel('Enter Giveaway').setStyle(ButtonStyle.Success).setEmoji('🎉')
+            );
+
+            const msg = await interaction.channel.send({ embeds: [gEmbed], components: [row] });
+            
+            db.giveaways[msg.id] = {
+                prize,
+                host: interaction.user.id,
+                entries: [],
+                ended: false
+            };
+
+            await interaction.reply({ content: `✅ Giveaway started successfully!`, ephemeral: true });
+
+            setTimeout(async () => {
+                const giveaway = db.giveaways[msg.id];
+                if (!giveaway || giveaway.ended) return;
+                giveaway.ended = true;
+
+                const fetchedMsg = await interaction.channel.messages.fetch(msg.id).catch(() => {});
+                if (!fetchedMsg) return;
+
+                if (giveaway.entries.length === 0) {
+                    const endedEmbed = new EmbedBuilder().setColor(0xe74c3c).setTitle('🎉 GIVEAWAY ENDED 🎉').setDescription(`Prize: **${prize}**\n\n❌ No valid entries entered.`);
+                    return fetchedMsg.edit({ embeds: [endedEmbed], components: [] });
+                }
+
+                const winnerId = giveaway.entries[Math.floor(Math.random() * giveaway.entries.length)];
+                const winnerEmbed = new EmbedBuilder().setColor(0x2ecc71).setTitle('🎉 GIVEAWAY ENDED 🎉').setDescription(`Prize: **${prize}**\n\n🏆 Winner: <@${winnerId}>!\nCongratulations!`);
+                fetchedMsg.edit({ embeds: [winnerEmbed], components: [] });
+                fetchedMsg.reply(`🎊 Congratulations <@${winnerId}>! You won **${prize}**!`);
+            }, ms);
+        }
+        else if (subcommand === 'end') {
+            const messageId = options.getString('message_id');
+            const giveaway = db.giveaways[messageId];
+            if (!giveaway || giveaway.ended) return interaction.reply({ content: '❌ Active giveaway not found with that message ID.', ephemeral: true });
+            
+            giveaway.ended = true;
+            if (giveaway.entries.length === 0) {
+                return interaction.reply({ content: '⚠️ Giveaway ended manually, but there were no participants.', ephemeral: true });
+            }
+            const winnerId = giveaway.entries[Math.floor(Math.random() * giveaway.entries.length)];
+            await interaction.reply({ content: `🎉 Giveaway ended manually! Winner: <@${winnerId}>`, ephemeral: false });
+        }
+        else if (subcommand === 'reroll') {
+            const messageId = options.getString('message_id');
+            const giveaway = db.giveaways[messageId];
+            if (!giveaway) return interaction.reply({ content: '❌ Giveaway not found with that message ID.', ephemeral: true });
+            if (giveaway.entries.length === 0) return interaction.reply({ content: '❌ No participants to reroll from.', ephemeral: true });
+
+            const newWinnerId = giveaway.entries[Math.floor(Math.random() * giveaway.entries.length)];
+            await interaction.reply({ content: `🎲 New Rerolled Winner: <@${newWinnerId}>! Congratulations!` });
+        }
+    }
+});
+
+client.login(process.env.TOKEN);
